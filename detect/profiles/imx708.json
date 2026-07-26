@@ -1,0 +1,13 @@
+{
+  "name": "imx708",
+  "description": "Raspberry Pi Camera Module 3 (IMX708) in the fixed jig; the original hand-tuned calibration. Full-res 4608x2592 captures.",
+  "ref_image": "photo_20260713_142841.jpg",
+  "ref_quad": [[1332, 908], [3282, 900], [3298, 2062], [1318, 2072]],
+  "anchors": [[1300, 900, 2150, 2100], [2450, 900, 3300, 2100]],
+  "match_scale": 0.25,
+  "min_match_confidence": 0.55,
+  "cell_w": 280,
+  "cell_h": 380,
+  "days": ["SAT", "FRI", "THU", "WED", "TUE", "MON", "SUN"],
+  "slots": ["NIGHT", "NOON", "MORN"]
+}

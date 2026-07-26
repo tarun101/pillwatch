@@ -34,23 +34,35 @@ CPU_THREADS = int(_req) if _req.strip() else 0
 cv2.setNumThreads(CPU_THREADS)  # 0 -> OpenCV uses all cores
 
 # ---- calibration (relative to REF_IMAGE, full-resolution pixels) ----------
-REF_IMAGE = "photo_20260713_142841.jpg"
-# Corners of the 21-cell area: TL, TR, BR, BL. Tuned visually on REF_IMAGE.
-REF_QUAD = np.float32([[1332, 908], [3282, 900], [3298, 2062], [1318, 2072]])
+# These constants come from the active camera profile (detect/profiles/*.json,
+# selected by PILLBOX_CAMERA_PROFILE, default "imx708"). The imx708 profile
+# reproduces the original hand-tuned values exactly, so the Pi deployment is
+# unchanged; a second camera (Jetson/Wyze, ESP32-CAM) sets its own profile.
+# Names below are kept identical so every caller (crop/align/warp) is untouched.
+try:  # works both as `-m detect.crop_cells` and `python3 detect/crop_cells.py`
+    from . import camera_profiles
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from detect import camera_profiles
+
+_PROFILE = camera_profiles.load_profile()
+REF_IMAGE = _PROFILE["ref_image"]
+# Corners of the 21-cell area: TL, TR, BR, BL.
+REF_QUAD = np.float32(_PROFILE["ref_quad"])
 # Anchor patches used to re-locate the box in new photos (x0, y0, x1, y1).
-# Two patches (left / right half of the box) let us recover rotation too.
-ANCHORS = [(1300, 900, 2150, 2100), (2450, 900, 3300, 2100)]
-MATCH_SCALE = 0.25          # template matching runs on downscaled images
-MIN_MATCH_CONFIDENCE = 0.55  # below this the anchor is considered lost
+# Two+ patches (e.g. left / right half of the box) let us recover rotation too.
+ANCHORS = [tuple(a) for a in _PROFILE["anchors"]]
+MATCH_SCALE = float(_PROFILE["match_scale"])   # template matching downscale
+MIN_MATCH_CONFIDENCE = float(_PROFILE["min_match_confidence"])
 
 # Column order as seen by the camera (labels face away from it), left to
 # right; row order top to bottom.
-DAYS = ["SAT", "FRI", "THU", "WED", "TUE", "MON", "SUN"]
-SLOTS = ["NIGHT", "NOON", "MORN"]
+DAYS = list(_PROFILE["days"])
+SLOTS = list(_PROFILE["slots"])
 
 # Canonical warped size of one cell.
-CELL_W, CELL_H = 280, 380
-GRID_W, GRID_H = CELL_W * 7, CELL_H * 3
+CELL_W, CELL_H = int(_PROFILE["cell_w"]), int(_PROFILE["cell_h"])
+GRID_W, GRID_H = CELL_W * len(DAYS), CELL_H * len(SLOTS)
 
 
 def build_matcher(ref_path):
@@ -121,14 +133,15 @@ def cell_crops(grid_img):
 
 def draw_debug(img, quad):
     dbg = img.copy()
+    ncol, nrow = len(DAYS), len(SLOTS)
     cv2.polylines(dbg, [quad.astype(int)], True, (0, 0, 255), 6)
-    dst = np.float32([[0, 0], [7, 0], [7, 3], [0, 3]])
+    dst = np.float32([[0, 0], [ncol, 0], [ncol, nrow], [0, nrow]])
     H = cv2.getPerspectiveTransform(dst, quad)
-    for c in range(1, 7):
-        p = cv2.perspectiveTransform(np.float32([[[c, 0]], [[c, 3]]]), H).astype(int)
+    for c in range(1, ncol):
+        p = cv2.perspectiveTransform(np.float32([[[c, 0]], [[c, nrow]]]), H).astype(int)
         cv2.line(dbg, tuple(p[0, 0]), tuple(p[1, 0]), (0, 0, 255), 3)
-    for r in range(1, 3):
-        p = cv2.perspectiveTransform(np.float32([[[0, r]], [[7, r]]]), H).astype(int)
+    for r in range(1, nrow):
+        p = cv2.perspectiveTransform(np.float32([[[0, r]], [[ncol, r]]]), H).astype(int)
         cv2.line(dbg, tuple(p[0, 0]), tuple(p[1, 0]), (0, 0, 255), 3)
     return cv2.resize(dbg, None, fx=0.3, fy=0.3, interpolation=cv2.INTER_AREA)
 

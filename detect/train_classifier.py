@@ -40,8 +40,15 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+try:  # works both as `-m detect.train_classifier` and as a bare script
+    from . import camera_profiles
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from detect import camera_profiles
+
 IN_H, IN_W = 128, 96  # cell crops are 380x280, similar aspect
-REF_STEM = "photo_20260713_142841"  # photo of the completely empty box
+# Empty-box reference photo stem follows the active camera profile.
+REF_STEM = Path(camera_profiles.load_profile()["ref_image"]).stem
 SEED = 0
 
 
