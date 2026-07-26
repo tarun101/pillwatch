@@ -1,0 +1,13 @@
+# PSRAM: the tensor arena and model live in external RAM.
+CONFIG_ESP32S3_SPIRAM_SUPPORT=y
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_SPIRAM_USE_MALLOC=y
+
+# Run the CPU and cache fast; TFLite Micro is compute-bound here.
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+
+# Roomy main-task stack for AllocateTensors and Invoke.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
