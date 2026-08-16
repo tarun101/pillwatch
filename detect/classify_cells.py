@@ -33,11 +33,20 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-REF_STEM = "photo_20260713_142841"  # photo of the completely empty box
+try:  # works both as `-m detect.classify_cells` and as a bare script
+    from . import crop_cells
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from detect import crop_cells
+
+# The empty-box reference photo and grid layout follow the active camera
+# profile (see detect/camera_profiles.py). For imx708 these are the original
+# values, so nothing changes on the Pi.
+REF_STEM = Path(crop_cells.REF_IMAGE).stem  # photo of the completely empty box
 REF_DIR = Path(__file__).parent / "reference_cells"  # empty-box cell crops
 
-DAYS = ["SAT", "FRI", "THU", "WED", "TUE", "MON", "SUN"]
-SLOTS = ["NIGHT", "NOON", "MORN"]
+DAYS = list(crop_cells.DAYS)
+SLOTS = list(crop_cells.SLOTS)
 
 # Ignore a border strip of each crop: cell walls, divider bleed and the
 # strongest specular highlights live there, pills sit in the middle.
@@ -122,7 +131,6 @@ def analyze(photo_path):
     scores each cell's band-pass blob energy against the empty-box reference.
     Returns {DAY_SLOT: {"pill": bool, "score": float}}.
     """
-    from . import crop_cells
     refs = _load_refs()
     img = cv2.imread(str(photo_path))
     if img is None:

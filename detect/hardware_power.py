@@ -1,5 +1,22 @@
-"""Portable board-power readers used by the paper statistics utility."""
+"""Portable board-power readers used by the paper statistics utility.
 
+Three sources, tried in order of trust:
+
+1. **External meter** (``PILLBOX_POWER_METER_CMD``) — a command that prints the
+   current board draw in watts. This is the *only* option on hardware without
+   software power telemetry, notably the **Jetson Orin Nano / Orin NX**, whose
+   modules drop the onboard INA3221 rail sensors older Jetsons had, so
+   ``tegrastats`` reports no power there. Point it at a USB power-meter reader,
+   a smart-plug API call, or a bench-PSU query.
+2. **Raspberry Pi 5 PMIC** (``vcgencmd pmic_read_adc``) — sum of V×I per rail.
+3. **Jetson tegrastats** — total input rail (VDD_IN / POM_5V_IN) on the Jetsons
+   that still expose it (AGX/older NX). Returns None on Orin Nano.
+
+Every reader returns watts (float) or None; None simply means "no power for
+this run", and latency is still reported.
+"""
+
+import os
 import re
 import shutil
 import subprocess
@@ -97,15 +114,43 @@ def _read_jetson_power_watts():
     return _parse_tegrastats_power(stdout)
 
 
-def read_power_watts(with_source=False):
-    """Read board input power on a Pi 5 or Jetson.
+def _read_external_meter_watts():
+    """Read watts from a user-supplied command (``PILLBOX_POWER_METER_CMD``).
 
-    By default this retains the original float-or-None API. ``with_source`` is
-    used by the paper output so results record which hardware interface supplied
-    the measurement. Pi 4 is supported as a latency-only target because it does
-    not expose total board-power telemetry through ``vcgencmd``.
+    The command's stdout must contain the current board draw in watts (a bare
+    number; a trailing 'W' or extra text is tolerated — the first number wins).
+    This is how you get power on boards without a software rail, e.g. the Orin
+    Nano. Runs through the shell, so it is the operator's own trusted command.
+    """
+    cmd = os.environ.get("PILLBOX_POWER_METER_CMD")
+    if not cmd:
+        return None
+    try:
+        out = subprocess.run(cmd, shell=True, capture_output=True,
+                             text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0:
+        return None
+    match = re.search(r"[-+]?[0-9]*\.?[0-9]+", out.stdout)
+    if not match:
+        return None
+    watts = float(match.group(0))
+    return round(watts, 3) if watts > 0 else None
+
+
+def read_power_watts(with_source=False):
+    """Read board input power from the first available source.
+
+    Order of trust: an explicit external meter (``PILLBOX_POWER_METER_CMD``),
+    then the Pi 5 PMIC, then Jetson tegrastats. Returns watts or None (None =
+    no telemetry; latency is still measured). ``with_source`` additionally
+    returns which interface supplied the number, so the paper output can record
+    the method honestly. Pi 4 and Orin Nano have no software rail, so without an
+    external meter they are latency-only.
     """
     for source, reader in (
+        ("external_meter", _read_external_meter_watts),
         ("raspberry_pi_pmic", _read_pi_power_watts),
         ("jetson_tegrastats", _read_jetson_power_watts),
     ):

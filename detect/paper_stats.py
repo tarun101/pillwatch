@@ -352,7 +352,10 @@ def write_notes(out, results, args):
     device_label = host["device_model"] or host["machine"]
     power_sources = {r["power"]["source"] for r in results.values()
                      if r["power"] and r["power"].get("source")}
-    if "jetson_tegrastats" in power_sources:
+    if "external_meter" in power_sources:
+        power_note = ("measured from an external meter via "
+                      "PILLBOX_POWER_METER_CMD (net of idle).")
+    elif "jetson_tegrastats" in power_sources:
         power_note = "measured from Jetson tegrastats (net of idle)."
     elif "raspberry_pi_pmic" in power_sources:
         power_note = "measured from the Pi 5 PMIC (net of idle)."
@@ -361,8 +364,16 @@ def write_notes(out, results, args):
             "not measured: Raspberry Pi 4 has no supported onboard total-board "
             "power telemetry. Latency results are still valid."
         )
+    elif host["device"] == "jetson":
+        power_note = (
+            "not measured: this Jetson exposes no tegrastats power rails (the "
+            "Orin Nano/NX drop the onboard INA3221 sensors). Set "
+            "PILLBOX_POWER_METER_CMD to an external meter for board power; "
+            "latency results are still valid."
+        )
     else:
-        power_note = ("not measured (needs the Pi 5 PMIC or Jetson tegrastats). "
+        power_note = ("not measured (needs the Pi 5 PMIC, Jetson tegrastats, or "
+                      "an external meter via PILLBOX_POWER_METER_CMD). "
                       "Run `--hardware` on the deployment device.")
     lines = [
         "# How to read these numbers\n",

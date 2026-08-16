@@ -1,0 +1,6 @@
+# Managed component dependencies (pulled by `idf.py reconfigure`).
+# esp-tflite-micro is Espressif's official TensorFlow Lite Micro port; the
+# version is pinned so a rebuild is reproducible for the paper.
+dependencies:
+  idf: ">=5.1"
+  espressif/esp-tflite-micro: "~1.3.0"
