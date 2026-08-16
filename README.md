@@ -1,4 +1,6 @@
-# pillbox
+# PillWatch
+
+PillWatch (formerly pillbox) is a student research project: camera capture and computer-vision pill-occupancy detection for a 21-cell pill organizer.
 
 Take photos from any browser using a Raspberry Pi camera, a Linux UVC webcam
 (including a Wyze Cam v2 in webcam mode), or an ESP32-CAM over Wi-Fi — live
